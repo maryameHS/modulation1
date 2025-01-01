@@ -1,0 +1,38 @@
+#include <stdio.h>
+#include <math.h>
+int calculer_lignes_colonnes_impair(int m){
+    int n=(m-1)/2;
+    return(pow(2,n)+pow(2,n+1))/2;
+    
+}
+int calculer_lignes_colonnes_pair(int m){
+    return pow(2,m/2);
+}
+int calculer_symboles(int m){
+    int n=(m-1)/2;
+    return pow(4,n-1);
+}
+int main(){
+    int m, lignes_colonnes, symboles;
+    printf("Entrez une valeur de m (m>=2 pour pair et m>=3 pour impair ):");
+    scanf("%d",&m);
+    if (m<2 || (m % 2 !=0 && m<3)){
+        printf("valeur de m invalid. m doit etre >=2 pour pair et>=2 pour pair et >=3 pour impair .\n");
+        return 1;
+    }
+   if (m % 2 !=0) {
+       lignes_colonnes = calculer_lignes_colonnes_impair(m);
+       symboles = calculer_symboles(m);
+       printf("pour m = %d (impair):\n",m);
+       printf("lignes = colonnes = %d \n",lignes_colonnes);
+       printf("nombre de symboles = %d \n",symboles);
+   }
+   else {
+       lignes_colonnes = calculer_lignes_colonnes_pair(m);
+       printf("pour m = %d (pair):\n",m);
+       printf("lignes = colonnes = %d \n",lignes_colonnes);
+   }
+
+
+    return 0;
+}
