@@ -1,0 +1,144 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
+#include <stdbool.h>
+#include <string.h>
+
+#define MAX_POINTS 4096
+
+typedef struct {
+    int x;
+    int y;
+    double energy;
+    double phase;
+} Point;
+
+void generate_qam_constellation(int M, int exclude_points, Point* points, int* point_count, Point* excluded_points, int* excluded_count) {
+    int side_len = (int)sqrt(M);
+    int side_len_x = side_len, side_len_y = side_len;
+
+    if (M == 32) { side_len_x = 6; side_len_y = 6; }
+    else if (M == 128) { side_len_x = 12; side_len_y = 12; }
+    else if (M == 512) { side_len_x = 24; side_len_y = 24; }
+    else if (M == 2048) { side_len_x = 46; side_len_y = 46; }
+
+    *point_count = 0;
+    *excluded_count = 0;
+
+    // Generate all points
+    for (int x = -side_len_x + 1; x < side_len_x; x += 2) {
+        for (int y = -side_len_y + 1; y < side_len_y; y += 2) {
+            if (x == 0 && y == 0) continue; // Exclude origin
+
+            // Check for maximum points
+            if (*point_count >= MAX_POINTS) {
+                printf("Error: Maximum number of points exceeded.\n");
+                exit(1);
+            }
+
+            points[*point_count].x = x;
+            points[*point_count].y = y;
+            points[*point_count].energy = sqrt(x * x + y * y);
+            points[*point_count].phase = fmod(atan2(y, x) + 2 * M_PI, 2 * M_PI);
+            (*point_count)++;
+        }
+    }
+
+    // Exclude points
+    if (exclude_points > 0) {
+        int square_size = (int)sqrt(exclude_points / 4);
+        for (int i = 0; i < square_size && *excluded_count < exclude_points; i++) {
+            for (int j = 0; j < square_size && *excluded_count < exclude_points; j++) {
+                excluded_points[*excluded_count] = (Point){side_len_x - 1 - 2 * i, side_len_y - 1 - 2 * j, 0, 0};
+                (*excluded_count)++;
+                excluded_points[*excluded_count] = (Point){-side_len_x + 1 + 2 * i, side_len_y - 1 - 2 * j, 0, 0};
+                (*excluded_count)++;
+                excluded_points[*excluded_count] = (Point){side_len_x - 1 - 2 * i, -side_len_y + 1 + 2 * j, 0, 0};
+                (*excluded_count)++;
+                excluded_points[*excluded_count] = (Point){-side_len_x + 1 + 2 * i, -side_len_y + 1 + 2 * j, 0, 0};
+                (*excluded_count)++;
+            }
+        }
+    }
+}
+
+void save_to_csv(const char* filename, Point* points, int point_count, Point* excluded_points, int excluded_count) {
+    FILE* file = fopen(filename, "w");
+    if (!file) {
+        printf("Error: Unable to create file %s\n", filename);
+        exit(1);
+    }
+
+    // Write included points
+    fprintf(file, "Included Symbols\n");
+    fprintf(file, "Symbol,Q,I,Energy,Phase (rad)\n"); // Add headers for Excel
+    for (int i = 0; i < point_count; i++) {
+        fprintf(file, "%d,%d,%d,%.2f,%.2f\n", i + 1, points[i].x, points[i].y, points[i].energy, points[i].phase);
+    }
+
+    // Separate sections for better readability
+    if (excluded_count > 0) {
+        fprintf(file, "\nExcluded Symbols\n");
+        fprintf(file, "Symbol,Q,I\n"); // Add headers for excluded points
+        for (int i = 0; i < excluded_count; i++) {
+            fprintf(file, "%d,%d,%d\n", i + 1, excluded_points[i].x, excluded_points[i].y);
+        }
+    }
+
+    fclose(file);
+    printf("Data saved to %s\n", filename);
+}
+
+void print_constellation(Point* points, int point_count, Point* excluded_points, int excluded_count) {
+    printf("\nIncluded Symbols:\nSymbol\tQ\tI\tEnergy\tPhase (rad)\n");
+    for (int i = 0; i < point_count; i++) {
+        printf("%d\t%d\t%d\t%.2f\t%.2f\n", i + 1, points[i].x, points[i].y, points[i].energy, points[i].phase);
+    }
+
+    if (excluded_count > 0) {
+        printf("\nExcluded Symbols:\nSymbol\tQ\tI\n");
+        for (int i = 0; i < excluded_count; i++) {
+            printf("%d\t%d\t%d\n", i + 1, excluded_points[i].x, excluded_points[i].y);
+        }
+    }
+}
+
+int main() {
+    int M;
+    printf("Enter the size of QAM (4, 16, 32, 64, 128, 512, 1024, 2048, 4096): ");
+    scanf("%d", &M);
+
+    int valid_sizes[] = {4, 16, 32, 64, 128, 512, 1024, 2048, 4096};
+    int valid = 0;
+    for (int i = 0; i < sizeof(valid_sizes) / sizeof(valid_sizes[0]); i++) {
+        if (M == valid_sizes[i]) {
+            valid = 1;
+            break;
+        }
+    }
+
+    if (!valid) {
+        printf("Invalid QAM size. Please choose from: 4, 16, 32, 64, 128, 512, 1024, 2048, 4096.\n");
+        return 1;
+    }
+
+    int exclude_points = 0;
+    if (M == 32) exclude_points = 4;
+    else if (M == 128) exclude_points = 16;
+    else if (M == 512) exclude_points = 64;
+    else if (M == 2048) exclude_points = 196;
+
+    Point points[MAX_POINTS], excluded_points[MAX_POINTS];
+    int point_count, excluded_count;
+
+    generate_qam_constellation(M, exclude_points, points, &point_count, excluded_points, &excluded_count);
+
+    printf("\nGenerating QAM constellation and table...\n");
+    print_constellation(points, point_count, excluded_points, excluded_count);
+
+    // Save data to CSV
+    save_to_csv("qam_constellation.csv", points, point_count, excluded_points, excluded_count);
+
+    printf("\nQAM constellation and table generated successfully and saved to qam_constellation.csv!\n");
+    return 0;
+}
